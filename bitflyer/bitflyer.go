@@ -20,17 +20,17 @@ import (
 const baseURL = "https://api.bitflyer.com/v1/"
 
 type APIClient struct {
-	key string
-	secret string
+	key        string
+	secret     string
 	httpClient *http.Client
 }
 
-func New(key, secret string) *APIClient{
+func New(key, secret string) *APIClient {
 	apiClient := &APIClient{key, secret, &http.Client{}}
 	return apiClient
 }
 
-func (api APIClient) header(method, endpoint string, body []byte) map[string]string{
+func (api APIClient) header(method, endpoint string, body []byte) map[string]string {
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	message := timestamp + method + endpoint + string(body)
 
@@ -38,14 +38,14 @@ func (api APIClient) header(method, endpoint string, body []byte) map[string]str
 	mac.Write([]byte(message))
 	sign := hex.EncodeToString(mac.Sum(nil))
 	return map[string]string{
-		"ACCESS-KEY": api.key,
+		"ACCESS-KEY":       api.key,
 		"ACCESS-TIMESTAMP": timestamp,
-		"ACCESS-SIGN": sign,
-		"Content-Type": "applicateion/json",
+		"ACCESS-SIGN":      sign,
+		"Content-Type":     "application/json",
 	}
 }
 
-func (api *APIClient) doRequest(method, urlPath string, query map[string]string, data []byte) (body []byte, err error){
+func (api *APIClient) doRequest(method, urlPath string, query map[string]string, data []byte) (body []byte, err error) {
 	baseURL, err := url.Parse(baseURL)
 	if err != nil {
 		return
@@ -55,7 +55,7 @@ func (api *APIClient) doRequest(method, urlPath string, query map[string]string,
 		return
 	}
 	endpoint := baseURL.ResolveReference(apiURL).String()
-	log.Printf("action=doRaquest endpoint=%s", endpoint)
+	log.Printf("action=doRequest endpoint=%s", endpoint)
 	req, err := http.NewRequest(method, endpoint, bytes.NewBuffer(data))
 	if err != nil {
 		return
@@ -81,13 +81,13 @@ func (api *APIClient) doRequest(method, urlPath string, query map[string]string,
 	return body, nil
 }
 
-type Balance struct{
-	CurrentCode string `json:"currency_code"`
-	Amount float64 `json:"amount"`
-	Available float64 `json:"available"`
+type Balance struct {
+	CurrentCode string  `json:"currency_code"`
+	Amount      float64 `json:"amount"`
+	Available   float64 `json:"available"`
 }
 
-func (api *APIClient) GetBalance()([]Balance, error) {
+func (api *APIClient) GetBalance() ([]Balance, error) {
 	url := "me/getbalance"
 	resp, err := api.doRequest("GET", url, map[string]string{}, nil)
 	log.Printf("url=%s resp=%s", url, string(resp))
@@ -98,7 +98,7 @@ func (api *APIClient) GetBalance()([]Balance, error) {
 	var balance []Balance
 	err = json.Unmarshal(resp, &balance)
 	if err != nil {
-		log.Printf("action=GetBalance err=&s", err.Error())
+		log.Printf("action=GetBalance err=%s", err.Error())
 		return nil, err
 	}
 	return balance, nil
@@ -106,7 +106,6 @@ func (api *APIClient) GetBalance()([]Balance, error) {
 
 type Ticker struct {
 	ProductCode     string  `json:"product_code"`
-	State           string  `json:"state"`
 	Timestamp       string  `json:"timestamp"`
 	TickID          int     `json:"tick_id"`
 	BestBid         float64 `json:"best_bid"`
@@ -115,30 +114,28 @@ type Ticker struct {
 	BestAskSize     float64 `json:"best_ask_size"`
 	TotalBidDepth   float64 `json:"total_bid_depth"`
 	TotalAskDepth   float64 `json:"total_ask_depth"`
-	MarketBidSize   float64 `json:"market_bid_size"`
-	MarketAskSize   float64 `json:"market_ask_size"`
 	Ltp             float64 `json:"ltp"`
 	Volume          float64 `json:"volume"`
 	VolumeByProduct float64 `json:"volume_by_product"`
 }
 
 func (t *Ticker) GetMidPrice() float64 {
-	return (float64(t.BestBid + t.BestAsk) / 2)
+	return (t.BestBid + t.BestAsk) / 2
 }
 
 func (t *Ticker) DateTime() time.Time {
 	dateTime, err := time.Parse(time.RFC3339, t.Timestamp)
-	if err != nil{
+	if err != nil {
 		log.Printf("action=DateTime, err=%s", err.Error())
 	}
 	return dateTime
 }
 
-func (t *Ticker) TruncateDatetime(duration time.Duration) time.Time {
+func (t *Ticker) TruncateDateTime(duration time.Duration) time.Time {
 	return t.DateTime().Truncate(duration)
 }
 
-func (api *APIClient) GetTicker(productCode string)(*Ticker, error) {
+func (api *APIClient) GetTicker(productCode string) (*Ticker, error) {
 	url := "ticker"
 	resp, err := api.doRequest("GET", url, map[string]string{"product_code": productCode}, nil)
 	if err != nil {
@@ -152,18 +149,64 @@ func (api *APIClient) GetTicker(productCode string)(*Ticker, error) {
 	return &ticker, nil
 }
 
-
 type JsonRPC2 struct {
-    Version string      `json:"jsonrpc"`
-    Method  string      `json:"method"`
-    Params  interface{} `json:"params"`
-    Result  interface{} `json:"result,omitempty"`
-    Id      *int        `json:"id,omitempty"`
+	Version string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params"`
+	Result  interface{} `json:"result,omitempty"`
+	Id      *int        `json:"id,omitempty"`
 }
 
 type SubscribeParams struct {
 	Channel string `json:"channel"`
 }
+
+// Pubnub service is scheduled to stop on 1st Dec, 2018
+/*
+func (api *APIClient) GetRealTimeTicker(symbol string, ch chan<- Ticker) {
+	pubnub := messaging.NewPubnub(
+		"", "sub-c-52a9ab50-291b-11e5-baaa-0619f8945a4f",
+		"", "", false, "", nil)
+
+	channel := fmt.Sprintf("lightning_ticker_%s", symbol)
+	sucCha := make(chan []byte)
+	errCha := make(chan []byte)
+
+	// [[{"best_ask":6206.99,"best_ask_size":1.24,"best_bid":6164,"best_bid_size":0.3,"ltp":6184.1,"product_code":"BTC_USD","tick_id":33839,"timestamp":"2018-10-12T03:01:53.8597609Z","total_ask_depth":228.3295673,"total_bid_depth":15.3916763,"volume":37.29123857,"volume_by_product":37.29123857}], "15393133139745912", "lightning_ticker_BTC_USD"]
+	go pubnub.Subscribe(channel, "", sucCha, false, errCha)
+
+	OUTER:
+		for {
+			select {
+			case res := <-sucCha:
+				var tickerList []interface{}
+				if err := json.Unmarshal(res, &tickerList); err != nil {
+					continue OUTER
+				}
+				var ticker Ticker
+				switch tic := tickerList[0].(type){
+				case []interface{}:
+					if len(tic)	 == 0 {
+						continue OUTER
+					}
+					marshaTic, err := json.Marshal(tic[0])
+					if err != nil {
+						continue OUTER
+					}
+					if err := json.Unmarshal(marshaTic, &ticker); err != nil {
+						continue OUTER
+					}
+					ch <- ticker
+				}
+
+			case err := <-errCha:
+				log.Printf("action=GetRealTimeTicker err=%s", err)
+			case <-messaging.SubscribeTimeout():
+				log.Printf("action=GetRealTimeTicker err=timeout")
+			}
+		}
+}
+*/
 
 func (api *APIClient) GetRealTimeTicker(symbol string, ch chan<- Ticker) {
 	u := url.URL{Scheme: "wss", Host: "ws.lightstream.bitflyer.com", Path: "/json-rpc"}
@@ -181,32 +224,33 @@ func (api *APIClient) GetRealTimeTicker(symbol string, ch chan<- Ticker) {
 		return
 	}
 
-	OUTER:
-		for {
-			message := new(JsonRPC2)
-			if err := c.ReadJSON(message); err != nil {
-				log.Println("read:", err)
-				return
-			}
-			if message.Method == "channelMessage" {
-				switch v := message.Params.(type) {
-				case map[string]interface{}:
-					for key, binary := range v {
-						if key == "message" {
-							marshaTic, err := json.Marshal(binary)
-							if err != nil {
-								continue OUTER
-							}
-							var ticker Ticker
-							if err := json.Unmarshal(marshaTic, &ticker); err != nil {
-								continue OUTER
-							}
-							ch <- ticker
+OUTER:
+	for {
+		message := new(JsonRPC2)
+		if err := c.ReadJSON(message); err != nil {
+			log.Println("read:", err)
+			return
+		}
+
+		if message.Method == "channelMessage" {
+			switch v := message.Params.(type) {
+			case map[string]interface{}:
+				for key, binary := range v {
+					if key == "message" {
+						marshaTic, err := json.Marshal(binary)
+						if err != nil {
+							continue OUTER
 						}
+						var ticker Ticker
+						if err := json.Unmarshal(marshaTic, &ticker); err != nil {
+							continue OUTER
+						}
+						ch <- ticker
 					}
 				}
 			}
 		}
+	}
 }
 
 type Order struct {
@@ -238,10 +282,16 @@ type ResponseSendChildOrder struct {
 	ChildOrderAcceptanceID string `json:"child_order_acceptance_id"`
 }
 
-func (api *APIClient) SendOrder(order *Order)(*ResponseSendChildOrder, error) {
+func (api *APIClient) SendOrder(order *Order) (*ResponseSendChildOrder, error) {
 	data, err := json.Marshal(order)
+	if err != nil {
+		return nil, err
+	}
 	url := "me/sendchildorder"
 	resp, err := api.doRequest("POST", url, map[string]string{}, data)
+	if err != nil {
+		return nil, err
+	}
 	var response ResponseSendChildOrder
 	err = json.Unmarshal(resp, &response)
 	if err != nil {
@@ -250,7 +300,7 @@ func (api *APIClient) SendOrder(order *Order)(*ResponseSendChildOrder, error) {
 	return &response, nil
 }
 
-func (api *APIClient) ListOrder(query map[string]string)([]Order, error) {
+func (api *APIClient) ListOrder(query map[string]string) ([]Order, error) {
 	resp, err := api.doRequest("GET", "me/getchildorders", query, nil)
 	if err != nil {
 		return nil, err

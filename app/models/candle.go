@@ -35,7 +35,7 @@ func (c *Candle) TableName() string {
 }
 
 func (c *Candle) Create() error {
-	cmd := fmt.Sprintf("INSRT INTO %s (time, open, close, high, low, volume) VALUES (?, ?, ?, ? ,?, ?)", c.TableName())
+	cmd := fmt.Sprintf("INSERT INTO %s (time, open, close, high, low, volume) VALUES (?, ?, ?, ? , ?, ?)", c.TableName())
 	_, err := DbConnection.Exec(cmd, c.Time.Format(time.RFC3339), c.Open, c.Close, c.High, c.Low, c.Volume)
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func (c *Candle) Save() error {
 
 func GetCandle(productCode string, duration time.Duration, dateTime time.Time) *Candle {
 	tableName := GetCandleTableName(productCode, duration)
-	cmd := fmt.Sprintf("SELECT time, open, close, high, low, volume, FROM %s WHERE time = ?", tableName)
+	cmd := fmt.Sprintf("SELECT time, open, close, high, low, volume FROM %s WHERE time = ?", tableName)
 	row := DbConnection.QueryRow(cmd, dateTime.Format(time.RFC3339))
 	var candle Candle
 	err := row.Scan(&candle.Time, &candle.Open, &candle.Close, &candle.High, &candle.Low, &candle.Volume)
@@ -65,10 +65,10 @@ func GetCandle(productCode string, duration time.Duration, dateTime time.Time) *
 }
 
 func CreateCandleWithDuration(ticker bitflyer.Ticker, productCode string, duration time.Duration) bool {
-	currentCandle := GetCandle(productCode, duration, ticker.TruncateDatetime(duration))
+	currentCandle := GetCandle(productCode, duration, ticker.TruncateDateTime(duration))
 	price := ticker.GetMidPrice()
 	if currentCandle == nil {
-		candle := NewCandle(productCode, duration, ticker.TruncateDatetime(duration), price, price, price, price, ticker.Volume)
+		candle := NewCandle(productCode, duration, ticker.TruncateDateTime(duration), price, price, price, price, ticker.Volume)
 		candle.Create()
 		return true
 	}

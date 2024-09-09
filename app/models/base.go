@@ -28,10 +28,10 @@ func init() {
 	}
 	cmd := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
-			time DATETIME PRIMARY KEY NOT NULL
-			product_code STRING
-			side STRING
-			price FLOAT
+			time DATETIME PRIMARY KEY NOT NULL,
+			product_code STRING,
+			side STRING,
+			price FLOAT,
 			size FLOAT)`, tableNameSignalEvents)
 	DbConnection.Exec(cmd)
 
@@ -39,11 +39,11 @@ func init() {
 		tableName := GetCandleTableName(config.Config.ProductCode, duration)
 		c := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
-			time DATETIME PRIMARY KEY NOT NULL
+			time DATETIME PRIMARY KEY NOT NULL,
 			open FLOAT,
 			close FLOAT,
 			high FLOAT,
-			low open FLOAT,
+			low FLOAT,
 			volume FLOAT)`, tableName)
 		DbConnection.Exec(c)
 	}
