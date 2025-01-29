@@ -19,17 +19,117 @@ import (
 
 const baseURL = "https://api.bitflyer.com/v1/"
 
+//********************
+// struct:構造体
+// start;
+//********************
+
+// API認証情報
 type APIClient struct {
 	key        string
 	secret     string
 	httpClient *http.Client
 }
 
+// 資産情報
+type Balance struct {
+	CurrentCode string  `json:"currency_code"`
+	Amount      float64 `json:"amount"`
+	Available   float64 `json:"available"`
+}
+
+// 銘柄識別用コード
+type Ticker struct {
+	ProductCode     string  `json:"product_code"`
+	Timestamp       string  `json:"timestamp"`
+	TickID          int     `json:"tick_id"`
+	BestBid         float64 `json:"best_bid"`
+	BestAsk         float64 `json:"best_ask"`
+	BestBidSize     float64 `json:"best_bid_size"`
+	BestAskSize     float64 `json:"best_ask_size"`
+	TotalBidDepth   float64 `json:"total_bid_depth"`
+	TotalAskDepth   float64 `json:"total_ask_depth"`
+	Ltp             float64 `json:"ltp"`
+	Volume          float64 `json:"volume"`
+	VolumeByProduct float64 `json:"volume_by_product"`
+}
+
+// JSON形式での変換用
+type JsonRPC2 struct {
+	Version string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params"`
+	Result  interface{} `json:"result,omitempty"`
+	Id      *int        `json:"id,omitempty"`
+}
+
+// JSON形式での変換用
+type SubscribeParams struct {
+	Channel string `json:"channel"`
+}
+
+// JSON形式での、注文情報
+type Order struct {
+	ID                     int     `json:"id"`
+	ChildOrderAcceptanceID string  `json:"child_order_acceptance_id"`
+	ProductCode            string  `json:"product_code"`
+	ChildOrderType         string  `json:"child_order_type"`
+	Side                   string  `json:"side"`
+	Price                  float64 `json:"price"`
+	Size                   float64 `json:"size"`
+	MinuteToExpires        int     `json:"minute_to_expire"`
+	TimeInForce            string  `json:"time_in_force"`
+	Status                 string  `json:"status"`
+	ErrorMessage           string  `json:"error_message"`
+	AveragePrice           float64 `json:"average_price"`
+	ChildOrderState        string  `json:"child_order_state"`
+	ExpireDate             string  `json:"expire_date"`
+	ChildOrderDate         string  `json:"child_order_date"`
+	OutstandingSize        float64 `json:"outstanding_size"`
+	CancelSize             float64 `json:"cancel_size"`
+	ExecutedSize           float64 `json:"executed_size"`
+	TotalCommission        float64 `json:"total_commission"`
+	Count                  int     `json:"count"`
+	Before                 int     `json:"before"`
+	After                  int     `json:"after"`
+}
+
+// 注文情報のIDを保持
+type ResponseSendChildOrder struct {
+	ChildOrderAcceptanceID string `json:"child_order_acceptance_id"`
+}
+
+//********************
+// end;
+// struct:構造体
+//********************
+
+
+//********************
+// func:関数
+// start;
+//********************
+/*
+関数名　：
+機能　　：INIファイルの設定値を引数として受け取り、API Clientのstrust(構造体)として返却
+引数　　：[IN]　API SecretKey
+　　　　　[IN]　API Secret
+　　　　　[OUT] API認証情報のstruct
+その他　：
+*/ 
 func New(key, secret string) *APIClient {
 	apiClient := &APIClient{key, secret, &http.Client{}}
 	return apiClient
 }
 
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (api APIClient) header(method, endpoint string, body []byte) map[string]string {
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	message := timestamp + method + endpoint + string(body)
@@ -45,6 +145,14 @@ func (api APIClient) header(method, endpoint string, body []byte) map[string]str
 	}
 }
 
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (api *APIClient) doRequest(method, urlPath string, query map[string]string, data []byte) (body []byte, err error) {
 	baseURL, err := url.Parse(baseURL)
 	if err != nil {
@@ -81,12 +189,14 @@ func (api *APIClient) doRequest(method, urlPath string, query map[string]string,
 	return body, nil
 }
 
-type Balance struct {
-	CurrentCode string  `json:"currency_code"`
-	Amount      float64 `json:"amount"`
-	Available   float64 `json:"available"`
-}
-
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (api *APIClient) GetBalance() ([]Balance, error) {
 	url := "me/getbalance"
 	resp, err := api.doRequest("GET", url, map[string]string{}, nil)
@@ -104,25 +214,26 @@ func (api *APIClient) GetBalance() ([]Balance, error) {
 	return balance, nil
 }
 
-type Ticker struct {
-	ProductCode     string  `json:"product_code"`
-	Timestamp       string  `json:"timestamp"`
-	TickID          int     `json:"tick_id"`
-	BestBid         float64 `json:"best_bid"`
-	BestAsk         float64 `json:"best_ask"`
-	BestBidSize     float64 `json:"best_bid_size"`
-	BestAskSize     float64 `json:"best_ask_size"`
-	TotalBidDepth   float64 `json:"total_bid_depth"`
-	TotalAskDepth   float64 `json:"total_ask_depth"`
-	Ltp             float64 `json:"ltp"`
-	Volume          float64 `json:"volume"`
-	VolumeByProduct float64 `json:"volume_by_product"`
-}
-
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (t *Ticker) GetMidPrice() float64 {
 	return (t.BestBid + t.BestAsk) / 2
 }
 
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (t *Ticker) DateTime() time.Time {
 	dateTime, err := time.Parse(time.RFC3339, t.Timestamp)
 	if err != nil {
@@ -131,10 +242,25 @@ func (t *Ticker) DateTime() time.Time {
 	return dateTime
 }
 
+/*
+関数名　：経過時間の切り捨て
+機能　　：経過時間の不要な桁数を切り捨てた値を戻す。
+引数　　：[IN]　TIME型の経過時間
+　　　　　[OUT] TIME型
+その他　：
+*/
 func (t *Ticker) TruncateDateTime(duration time.Duration) time.Time {
 	return t.DateTime().Truncate(duration)
 }
 
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (api *APIClient) GetTicker(productCode string) (*Ticker, error) {
 	url := "ticker"
 	resp, err := api.doRequest("GET", url, map[string]string{"product_code": productCode}, nil)
@@ -149,65 +275,14 @@ func (api *APIClient) GetTicker(productCode string) (*Ticker, error) {
 	return &ticker, nil
 }
 
-type JsonRPC2 struct {
-	Version string      `json:"jsonrpc"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params"`
-	Result  interface{} `json:"result,omitempty"`
-	Id      *int        `json:"id,omitempty"`
-}
-
-type SubscribeParams struct {
-	Channel string `json:"channel"`
-}
-
-// Pubnub service is scheduled to stop on 1st Dec, 2018
 /*
-func (api *APIClient) GetRealTimeTicker(symbol string, ch chan<- Ticker) {
-	pubnub := messaging.NewPubnub(
-		"", "sub-c-52a9ab50-291b-11e5-baaa-0619f8945a4f",
-		"", "", false, "", nil)
-
-	channel := fmt.Sprintf("lightning_ticker_%s", symbol)
-	sucCha := make(chan []byte)
-	errCha := make(chan []byte)
-
-	// [[{"best_ask":6206.99,"best_ask_size":1.24,"best_bid":6164,"best_bid_size":0.3,"ltp":6184.1,"product_code":"BTC_USD","tick_id":33839,"timestamp":"2018-10-12T03:01:53.8597609Z","total_ask_depth":228.3295673,"total_bid_depth":15.3916763,"volume":37.29123857,"volume_by_product":37.29123857}], "15393133139745912", "lightning_ticker_BTC_USD"]
-	go pubnub.Subscribe(channel, "", sucCha, false, errCha)
-
-	OUTER:
-		for {
-			select {
-			case res := <-sucCha:
-				var tickerList []interface{}
-				if err := json.Unmarshal(res, &tickerList); err != nil {
-					continue OUTER
-				}
-				var ticker Ticker
-				switch tic := tickerList[0].(type){
-				case []interface{}:
-					if len(tic)	 == 0 {
-						continue OUTER
-					}
-					marshaTic, err := json.Marshal(tic[0])
-					if err != nil {
-						continue OUTER
-					}
-					if err := json.Unmarshal(marshaTic, &ticker); err != nil {
-						continue OUTER
-					}
-					ch <- ticker
-				}
-
-			case err := <-errCha:
-				log.Printf("action=GetRealTimeTicker err=%s", err)
-			case <-messaging.SubscribeTimeout():
-				log.Printf("action=GetRealTimeTicker err=timeout")
-			}
-		}
-}
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
 */
-
 func (api *APIClient) GetRealTimeTicker(symbol string, ch chan<- Ticker) {
 	u := url.URL{Scheme: "wss", Host: "ws.lightstream.bitflyer.com", Path: "/json-rpc"}
 	log.Printf("connecting to %s", u.String())
@@ -253,35 +328,14 @@ OUTER:
 	}
 }
 
-type Order struct {
-	ID                     int     `json:"id"`
-	ChildOrderAcceptanceID string  `json:"child_order_acceptance_id"`
-	ProductCode            string  `json:"product_code"`
-	ChildOrderType         string  `json:"child_order_type"`
-	Side                   string  `json:"side"`
-	Price                  float64 `json:"price"`
-	Size                   float64 `json:"size"`
-	MinuteToExpires        int     `json:"minute_to_expire"`
-	TimeInForce            string  `json:"time_in_force"`
-	Status                 string  `json:"status"`
-	ErrorMessage           string  `json:"error_message"`
-	AveragePrice           float64 `json:"average_price"`
-	ChildOrderState        string  `json:"child_order_state"`
-	ExpireDate             string  `json:"expire_date"`
-	ChildOrderDate         string  `json:"child_order_date"`
-	OutstandingSize        float64 `json:"outstanding_size"`
-	CancelSize             float64 `json:"cancel_size"`
-	ExecutedSize           float64 `json:"executed_size"`
-	TotalCommission        float64 `json:"total_commission"`
-	Count                  int     `json:"count"`
-	Before                 int     `json:"before"`
-	After                  int     `json:"after"`
-}
-
-type ResponseSendChildOrder struct {
-	ChildOrderAcceptanceID string `json:"child_order_acceptance_id"`
-}
-
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (api *APIClient) SendOrder(order *Order) (*ResponseSendChildOrder, error) {
 	data, err := json.Marshal(order)
 	if err != nil {
@@ -300,6 +354,14 @@ func (api *APIClient) SendOrder(order *Order) (*ResponseSendChildOrder, error) {
 	return &response, nil
 }
 
+/*
+関数名　：
+機能　　：
+引数　　：[IN]　
+　　　　　[IN]　
+　　　　　[OUT] 
+その他　：
+*/
 func (api *APIClient) ListOrder(query map[string]string) ([]Order, error) {
 	resp, err := api.doRequest("GET", "me/getchildorders", query, nil)
 	if err != nil {
@@ -312,3 +374,8 @@ func (api *APIClient) ListOrder(query map[string]string) ([]Order, error) {
 	}
 	return responseListOrder, nil
 }
+
+//********************
+// end;
+// func:関数
+//********************
